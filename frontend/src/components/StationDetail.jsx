@@ -416,7 +416,7 @@ export default function StationDetail({ stationId, apiStations, token, t, refres
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <span style={{ fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", color: "var(--text-muted)", letterSpacing: "0.05em", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
             <MapPin size={13} strokeWidth={1.75} style={{ color: stationLineColor }} />
-            {t.line}: {station.line_name || "Metropoliten"}
+            {t.line}: {station.line_name || t.metroDefault}
           </span>
         </div>
       </div>
@@ -550,7 +550,7 @@ export default function StationDetail({ stationId, apiStations, token, t, refres
                           <td>{device.size}″</td>
                         </>
                       ) : (
-                        <td style={{ fontWeight: 600 }}>{device.brand || "Standard"}</td>
+                        <td style={{ fontWeight: 600 }}>{device.brand || "—"}</td>
                       )}
                       <td>
                         <span style={{ fontWeight: "700", color: "var(--accent-color)" }}>{device.quantity}</span>
@@ -686,7 +686,7 @@ export default function StationDetail({ stationId, apiStations, token, t, refres
               <div style={{ background: "var(--bg-tertiary)", padding: "0.85rem 1rem", borderRadius: "10px", display: "flex", gap: "0.5rem", border: "1px solid var(--border-color)" }}>
                 <Info size={18} strokeWidth={1.75} style={{ color: "var(--accent-color)", flexShrink: 0, marginTop: "2px" }} />
                 <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-                  {t.deviceInfo}: <strong>{selectedDevice.brand || selectedDevice.switch_type || "Standard"}</strong> (Jami: {selectedDevice.quantity})
+                  {t.deviceInfo}: <strong>{selectedDevice.brand || selectedDevice.switch_type || "—"}</strong> ({t.quantity}: {selectedDevice.quantity})
                 </p>
               </div>
 

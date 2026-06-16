@@ -1,0 +1,276 @@
+/* Metro Kamera — yumshoq dark blue admin tema (ko'zni charchatmaydi) */
+
+:root,
+html[data-bs-theme="dark"] {
+  --jazzmin-bg: #1a2840;
+  --jazzmin-surface: #223352;
+  --jazzmin-surface-2: #2a3f5f;
+  --jazzmin-surface-3: #324868;
+  --jazzmin-sidebar-start: #1e3354;
+  --jazzmin-sidebar-end: #253d5c;
+  --jazzmin-input-bg: #2a4060;
+  --jazzmin-border: rgba(148, 163, 184, 0.18);
+  --jazzmin-accent: #4b8df8;
+  --jazzmin-accent-soft: rgba(75, 141, 248, 0.18);
+  --jazzmin-text: #d4deeb;
+  --jazzmin-text-muted: #94a3b8;
+  --jazzmin-heading: #eef2f8;
+}
+
+body.theme-darkly,
+html[data-bs-theme="dark"] body.theme-darkly {
+  background: var(--jazzmin-bg) !important;
+  color: var(--jazzmin-text) !important;
+}
+
+body.theme-darkly .wrapper,
+body.theme-darkly .content-wrapper,
+body.theme-darkly .content,
+body.theme-darkly .main-footer,
+body.theme-darkly .main-header {
+  background: var(--jazzmin-bg) !important;
+}
+
+body.theme-darkly .main-sidebar,
+body.theme-darkly .sidebar-dark-primary {
+  background: linear-gradient(
+    180deg,
+    var(--jazzmin-sidebar-start) 0%,
+    var(--jazzmin-sidebar-end) 100%
+  ) !important;
+  border-right: 1px solid var(--jazzmin-border);
+}
+
+body.theme-darkly .brand-link {
+  background: rgba(30, 51, 84, 0.92) !important;
+  border-bottom: 1px solid var(--jazzmin-border) !important;
+  color: var(--jazzmin-heading) !important;
+}
+
+body.theme-darkly .brand-link:hover {
+  color: #fff !important;
+}
+
+body.theme-darkly .nav-sidebar .nav-link {
+  border-radius: 0.5rem;
+  margin: 2px 0.5rem;
+  color: var(--jazzmin-text-muted) !important;
+}
+
+body.theme-darkly .nav-sidebar .nav-link.active,
+body.theme-darkly .nav-sidebar .nav-link:hover {
+  background: var(--jazzmin-accent-soft) !important;
+  color: var(--jazzmin-heading) !important;
+}
+
+body.theme-darkly .nav-header {
+  color: var(--jazzmin-text-muted) !important;
+}
+
+body.theme-darkly .card,
+body.theme-darkly .small-box,
+body.theme-darkly .info-box,
+body.theme-darkly fieldset.module,
+body.theme-darkly .inline-group {
+  background: var(--jazzmin-surface) !important;
+  border: 1px solid var(--jazzmin-border) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 16px rgba(15, 30, 55, 0.22) !important;
+}
+
+body.theme-darkly .card-header,
+body.theme-darkly .card-footer,
+body.theme-darkly fieldset.module h2,
+body.theme-darkly .inline-group h2 {
+  background: var(--jazzmin-surface-2) !important;
+  border-color: var(--jazzmin-border) !important;
+  color: var(--jazzmin-heading) !important;
+}
+
+body.theme-darkly .table,
+body.theme-darkly .table thead th,
+body.theme-darkly .table td,
+body.theme-darkly .table th {
+  color: var(--jazzmin-text) !important;
+  border-color: var(--jazzmin-border) !important;
+}
+
+body.theme-darkly .table-striped tbody tr:nth-of-type(odd) {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+body.theme-darkly .table-hover tbody tr:hover {
+  background: rgba(75, 141, 248, 0.1) !important;
+}
+
+body.theme-darkly .form-control,
+body.theme-darkly .form-select,
+body.theme-darkly .select2-container--default .select2-selection--single,
+body.theme-darkly .select2-container--default .select2-selection--multiple,
+body.theme-darkly input[type="text"],
+body.theme-darkly input[type="password"],
+body.theme-darkly input[type="email"],
+body.theme-darkly input[type="url"],
+body.theme-darkly input[type="number"],
+body.theme-darkly textarea,
+body.theme-darkly select {
+  background: var(--jazzmin-input-bg) !important;
+  border: 1px solid var(--jazzmin-border) !important;
+  color: var(--jazzmin-heading) !important;
+  border-radius: 0.5rem !important;
+}
+
+body.theme-darkly .form-control:focus,
+body.theme-darkly .form-select:focus {
+  border-color: var(--jazzmin-accent) !important;
+  box-shadow: 0 0 0 0.2rem rgba(75, 141, 248, 0.22) !important;
+  background: var(--jazzmin-surface-3) !important;
+}
+
+body.theme-darkly label,
+body.theme-darkly .col-form-label,
+body.theme-darkly .help-block,
+body.theme-darkly .helptext {
+  color: var(--jazzmin-text-muted) !important;
+}
+
+body.theme-darkly .btn-primary {
+  background: linear-gradient(135deg, #3b7de8, #2f6fd4) !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+}
+
+body.theme-darkly .btn-primary:hover {
+  background: linear-gradient(135deg, #4b8df8, #3b7de8) !important;
+}
+
+body.theme-darkly .btn-secondary,
+body.theme-darkly .btn-outline-secondary {
+  background: var(--jazzmin-surface-2) !important;
+  border-color: var(--jazzmin-border) !important;
+  color: var(--jazzmin-text) !important;
+}
+
+body.theme-darkly .login-box .card,
+body.theme-darkly .register-box .card {
+  background: var(--jazzmin-surface) !important;
+  border: 1px solid var(--jazzmin-border) !important;
+  border-radius: 1rem !important;
+}
+
+body.theme-darkly .login-page,
+body.theme-darkly .register-page {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(59, 130, 246, 0.22), transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(99, 102, 241, 0.14), transparent 55%),
+    linear-gradient(160deg, #1a2840 0%, #1e3354 50%, #223352 100%) !important;
+}
+
+body.theme-darkly .breadcrumb {
+  background: transparent !important;
+}
+
+body.theme-darkly .breadcrumb-item,
+body.theme-darkly .breadcrumb-item a {
+  color: var(--jazzmin-text-muted) !important;
+}
+
+body.theme-darkly .breadcrumb-item.active {
+  color: var(--jazzmin-text) !important;
+}
+
+body.theme-darkly .content-header h1,
+body.theme-darkly .card-title {
+  color: var(--jazzmin-heading) !important;
+  font-weight: 700;
+}
+
+body.theme-darkly .main-header,
+body.theme-darkly .main-header.navbar,
+body.theme-darkly .navbar-dark {
+  background: var(--jazzmin-sidebar-start) !important;
+  border-bottom: 1px solid var(--jazzmin-border) !important;
+}
+
+body.theme-darkly .main-header .navbar-nav .nav-link {
+  color: var(--jazzmin-text) !important;
+}
+
+body.theme-darkly .pagination .page-link {
+  background: var(--jazzmin-surface-2) !important;
+  border-color: var(--jazzmin-border) !important;
+  color: var(--jazzmin-text) !important;
+}
+
+body.theme-darkly .pagination .page-item.active .page-link {
+  background: var(--jazzmin-accent) !important;
+  border-color: var(--jazzmin-accent) !important;
+}
+
+body.theme-darkly .select2-dropdown {
+  background: var(--jazzmin-surface-2) !important;
+  border-color: var(--jazzmin-border) !important;
+}
+
+body.theme-darkly .select2-results__option--highlighted {
+  background: var(--jazzmin-accent-soft) !important;
+}
+
+body.theme-darkly .modal-content {
+  background: var(--jazzmin-surface) !important;
+  border: 1px solid var(--jazzmin-border) !important;
+}
+
+body.theme-darkly .modal-header,
+body.theme-darkly .modal-footer {
+  border-color: var(--jazzmin-border) !important;
+}
+
+body.theme-darkly .alert {
+  border-radius: 0.5rem !important;
+}
+
+body.theme-darkly .main-footer {
+  border-top: 1px solid var(--jazzmin-border) !important;
+  color: var(--jazzmin-text-muted) !important;
+}
+
+/* Changelist va filterlar */
+body.theme-darkly #changelist,
+body.theme-darkly #changelist-filter,
+body.theme-darkly .paginator {
+  background: transparent !important;
+  color: var(--jazzmin-text) !important;
+}
+
+body.theme-darkly #changelist-filter {
+  background: var(--jazzmin-surface) !important;
+  border: 1px solid var(--jazzmin-border) !important;
+  border-radius: 0.75rem !important;
+}
+
+body.theme-darkly #changelist-filter h2,
+body.theme-darkly #changelist-filter h3 {
+  color: var(--jazzmin-heading) !important;
+}
+
+body.theme-darkly .actions,
+body.theme-darkly .actions select {
+  background: var(--jazzmin-surface-2) !important;
+}
+
+/* Tablar */
+body.theme-darkly .nav-tabs {
+  border-color: var(--jazzmin-border) !important;
+}
+
+body.theme-darkly .nav-tabs .nav-link {
+  color: var(--jazzmin-text-muted) !important;
+  border-color: transparent !important;
+}
+
+body.theme-darkly .nav-tabs .nav-link.active {
+  background: var(--jazzmin-surface) !important;
+  color: var(--jazzmin-heading) !important;
+  border-color: var(--jazzmin-border) var(--jazzmin-border) var(--jazzmin-surface) !important;
+}

@@ -185,6 +185,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Yuklanadigan sxema rasmlari va PDF fayllar uchun papka
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+STATICFILES_DIRS = [
+    BASE_DIR / 'home' / 'static',
+]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -205,61 +209,93 @@ SPECTACULAR_SETTINGS = {
 
 # --- JAZZMIN (Admin Panel Customization) SOZLAMALARI ---
 JAZZMIN_SETTINGS = {
-    # Panel sarlavhasi va logotiplar
-    "site_title": "Kamera App Admin",
-    "site_header": "Kamera App",
-    "site_brand": "Kamera Nazorati",
-    "welcome_sign": "Tizimga xush kelibsiz!",
-    "copyright": "Kamera App MChJ",
-    "search_model": ["kamera.Station"], # Qidiruv paneli
-    
-    # Menyular tartibi va ikonkalari (FontAwesome ikonalari)
+    "site_title": "Kamera Nazorati",
+    "site_header": "Metro Kamera",
+    "site_brand": "Kamera App",
+    "site_logo": None,
+    "login_logo": None,
+    "welcome_sign": "Admin panelga xush kelibsiz",
+    "copyright": "Kamera App",
+    "search_model": ["kamera.Station", "auth.User"],
+    "user_avatar": None,
     "topmenu_links": [
         {"name": "Bosh sahifa", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "API Docs", "url": "/api/schema/", "new_window": True},
         {"model": "kamera.Station"},
     ],
-    "user_avatar": None,
-    
-    # Chap tomondagi menyu uchun ikonkalar
+    "usermenu_links": [
+        {"name": "Sayt", "url": "/", "new_window": True},
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+    "order_with_respect_to": [
+        "kamera.MetroLine",
+        "kamera.Station",
+        "kamera.SchemaCamera",
+        "kamera.Camera",
+        "auth",
+    ],
     "icons": {
         "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
+        "auth.user": "fas fa-user-shield",
         "auth.Group": "fas fa-users",
         "kamera.MetroLine": "fas fa-subway",
         "kamera.Station": "fas fa-map-marker-alt",
+        "kamera.SchemaCamera": "fas fa-map-pin",
         "kamera.Camera": "fas fa-video",
+        "kamera.CameraStream": "fas fa-satellite-dish",
         "kamera.MetalDetector": "fas fa-door-open",
         "kamera.Monitor": "fas fa-desktop",
         "kamera.Computer": "fas fa-laptop",
         "kamera.NVR": "fas fa-hdd",
         "kamera.Switch": "fas fa-network-wired",
+        "kamera.DeviceHistory": "fas fa-history",
     },
-    # Modellarga chiroyli tartib berish
-    "order_with_respect_to": ["kamera.MetroLine", "kamera.Station", "kamera.Camera"],
-    
-    # Mavzuni o'zgartirish paneli (sozlash uchun pastki o'ng burchakda chiqadi)
-    "show_ui_builder": True,
+    "default_icon_parents": "fas fa-folder",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": True,
+    "custom_css": "admin/css/jazzmin_custom.css",
+    "custom_js": None,
+    "show_ui_builder": False,
+    "changeform_format": "horizontal_tabs",
+    "changeform_format_overrides": {
+        "auth.user": "collapsible",
+        "auth.group": "vertical_tabs",
+    },
 }
 
-# Jazzmin interfeysi rangi (ixtiyoriy, masalan to'q ko'k ko'rinish)
 JAZZMIN_UI_TWEAKS = {
     "navbar_small_text": False,
-    "footer_small_text": False,
+    "footer_small_text": True,
     "body_small_text": False,
     "brand_small_text": False,
     "brand_colour": "navbar-primary",
     "accent": "accent-primary",
-    "navbar": "navbar-dark",
-    "no_navbar_border": False,
-    "navbar_fixed": False,
-    "layout_options": [],
+    "navbar": "navbar-dark navbar-primary",
+    "no_navbar_border": True,
+    "navbar_fixed": True,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": True,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": True,
+    "theme": "darkly",
     "dark_mode_theme": None,
+    "default_theme_mode": "dark",
     "button_classes": {
         "primary": "btn-primary",
-        "secondary": "btn-secondary",
+        "secondary": "btn-outline-secondary",
         "info": "btn-info",
         "warning": "btn-warning",
         "danger": "btn-danger",
-        "success": "btn-success"
-    }
+        "success": "btn-success",
+    },
+    "actions_sticky_top": True,
 }

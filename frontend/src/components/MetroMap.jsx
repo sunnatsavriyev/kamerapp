@@ -218,14 +218,11 @@ export default function MetroMap({ apiStations, onStationSelect, selectedStation
     };
   }, [isDragging, dragStart]);
 
-  // Determine active language for line names in the legend
-  const isRu = t.title && t.title.includes("Ташкентский");
-  const isEn = t.title && t.title.includes("Tashkent Metro");
   const getLineName = (color) => {
-    if (color === "blue") return isRu ? "Чиланзарская линия" : isEn ? "Chilonzor Line" : "Chilonzor yo'li";
-    if (color === "red") return isRu ? "Узбекистанская линия" : isEn ? "O'zbekiston Line" : "O'zbekiston yo'li";
-    if (color === "green") return isRu ? "Юнусабадская линия" : isEn ? "Yunusobod Line" : "Yunusobod yo'li";
-    if (color === "yellow") return isRu ? "Кольцевая линия" : isEn ? "Circle Line" : "Halqa yo'li";
+    if (color === "blue") return t.lineChilonzor;
+    if (color === "red") return t.lineUzbekistan;
+    if (color === "green") return t.lineYunusobod;
+    if (color === "yellow") return t.lineCircle;
     return "";
   };
 
@@ -262,9 +259,9 @@ export default function MetroMap({ apiStations, onStationSelect, selectedStation
       </div>
 
       <div className="map-controls">
-        <button className="btn btn-secondary btn-icon" onClick={zoomIn} title="Zoom In">+</button>
-        <button className="btn btn-secondary btn-icon" onClick={zoomOut} title="Zoom Out">-</button>
-        <button className="btn btn-secondary btn-icon" onClick={resetZoom} title="Reset">⟲</button>
+        <button className="btn btn-secondary btn-icon" onClick={zoomIn} title={t.zoomIn}>+</button>
+        <button className="btn btn-secondary btn-icon" onClick={zoomOut} title={t.zoomOut}>-</button>
+        <button className="btn btn-secondary btn-icon" onClick={resetZoom} title={t.resetZoom}>⟲</button>
       </div>
 
       <div

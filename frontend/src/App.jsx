@@ -295,7 +295,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error("Login yoki parol noto'g'ri kiritildi!");
+        throw new Error(t.loginFailed);
       }
 
       const data = await response.json();
@@ -304,12 +304,12 @@ export default function App() {
         setToken(data.access);
         setActivePage("dashboard");
         setAuthError("");
-        showNotification("success", "Xush kelibsiz!", "Tizimga muvaffaqiyatli kirdingiz.");
+        showNotification("success", t.welcomeLogin, t.loginSuccess);
       } else {
         throw new Error("Token loading error");
       }
     } catch (err) {
-      setAuthError(err.message || "Tizimga ulanishda xatolik");
+      setAuthError(err.message || t.loginConnectionError);
     } finally {
       setAuthLoading(false);
     }
@@ -533,7 +533,7 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="sidebar-section-label">Menu</div>
+          <div className="sidebar-section-label">{t.menuSection}</div>
           <button
             className={`sidebar-nav-item ${activePage === "dashboard" ? "active" : ""}`}
             onClick={() => setActivePage("dashboard")}

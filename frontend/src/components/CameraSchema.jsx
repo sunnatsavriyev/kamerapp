@@ -2,6 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { API_BASE_URL } from "../config";
 import {
+  formatCameraNumber,
+  getConnectionLabel,
+  getConnectionStyle,
+  localizeConnectionResult,
+  shouldBlockCameraSave,
+  getBlockedSaveMessage,
+} from "../translations";
+import {
   Cctv, CirclePlus, PencilLine, Eye, EyeOff, Wifi, WifiOff, Copy,
   ExternalLink, X, Save, CircleCheck, Loader,
   Video, Settings, MapPin, LockKeyhole, CircleUser, Globe2, RotateCcw,
@@ -9,18 +17,7 @@ import {
   FileImage, Hash, ZoomIn
 } from "lucide-react";
 
-const CONNECTION_META = {
-  live: { label: "LIVE", color: "#10b981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.25)" },
-  checking: { label: "Tekshirilmoqda", color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.25)" },
-  no_ip: { label: "IP yo'q", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.25)" },
-  invalid_ip: { label: "IP xato", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.25)" },
-  unreachable: { label: "IP topilmadi", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.25)" },
-  auth_failed: { label: "Parol xato", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.25)" },
-  offline: { label: "LIVE emas", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.25)" },
-  error: { label: "LIVE emas", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.25)" },
-};
-
-async function testSchemaCameraConnection(token, payload) {
+async function testSchemaCameraConnection(token, payload, t) {
   try {
     const resp = await fetch(`${API_BASE_URL}/api/schema-cameras/test-connection/`, {
       method: "POST",
@@ -32,24 +29,25 @@ async function testSchemaCameraConnection(token, payload) {
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      return {
+      return localizeConnectionResult(t, {
         ok: false,
         status: data.status || "error",
-        message: data.message || "Ulanishni tekshirishda xatolik",
-      };
+        message: data.message,
+      });
     }
-    return data;
+    return localizeConnectionResult(t, data);
   } catch {
-    return { ok: false, status: "error", message: "Server bilan bog'lanib bo'lmadi" };
+    return localizeConnectionResult(t, { ok: false, status: "error", message: t.connServerError });
   }
 }
 
-function ConnectionBadge({ status, message, checking, compact }) {
-  const key = checking ? "checking" : (status && CONNECTION_META[status] ? status : "offline");
-  const meta = CONNECTION_META[key];
+function ConnectionBadge({ status, checking, compact, t }) {
+  const key = checking ? "checking" : (status || "offline");
+  const meta = getConnectionStyle(key, checking);
+  const label = getConnectionLabel(t, status, checking);
   return (
     <span
-      title={message || meta.label}
+      title={label}
       style={{
         fontSize: compact ? "0.68rem" : "0.72rem",
         fontWeight: 700,
@@ -68,7 +66,7 @@ function ConnectionBadge({ status, message, checking, compact }) {
       {!checking && key === "live" && (
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: meta.color, animation: "pulse-dot 1.2s infinite" }} />
       )}
-      {meta.label}
+      {label}
     </span>
   );
 }
@@ -176,11 +174,11 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
       stream_path: f.stream_path,
     };
     if (savedCam?.id) payload.id = savedCam.id;
-    const result = await testSchemaCameraConnection(token, payload);
+    const result = await testSchemaCameraConnection(token, payload, t);
     setConnectionStatus(result);
     setConnectionChecking(false);
     return result;
-  }, [fields, savedCam?.id, token]);
+  }, [fields, savedCam?.id, token, t]);
 
   useEffect(() => {
     if (tab !== "view" || isNew || !savedCam?.id) return;
@@ -226,11 +224,11 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
   const handleSave = async (e) => {
     e.preventDefault();
     if (!fields.ip_address?.trim()) {
-      showNotification?.("warning", "Xatolik", "IP manzil kiritilishi shart");
+      showNotification?.("warning", t.errorTitle, t.ipRequired);
       return;
     }
     if (!fields.password?.trim()) {
-      showNotification?.("warning", "Xatolik", "Parol kiritilishi shart");
+      showNotification?.("warning", t.errorTitle, t.passwordRequired);
       return;
     }
 
@@ -238,6 +236,11 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
     try {
       const testResult = await runConnectionTest();
       setConnectionStatus(testResult);
+
+      if (shouldBlockCameraSave(testResult)) {
+        showNotification?.("error", t.cameraNotAdded, getBlockedSaveMessage(t, testResult));
+        return;
+      }
 
       const payload = {
         ...fields,
@@ -248,6 +251,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
         pos_y: parseFloat(fields.pos_y) || 50,
         direction: parseInt(fields.direction) || 0,
         position_number: parseInt(fields.position_number) || 1,
+        is_active: testResult.ok ? fields.is_active !== false : false,
       };
 
       const url = isNew
@@ -267,14 +271,14 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
       setSavedCam(data);
       onSave(data, testResult);
 
-      if (testResult.ok) {
+      if (testResult.ok || testResult.status === "offline") {
         onClose();
       } else {
         setTab("settings");
         setStreamAllowed(false);
       }
     } catch {
-      showNotification?.("error", "Xatolik", "Kamerani saqlab bo'lmadi");
+      showNotification?.("error", t.errorTitle, t.saveCameraFailed);
     } finally {
       setSaving(false);
     }
@@ -336,18 +340,18 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: "1rem" }}>
-                {savedCam?.label || fields.label || `Kamera #${fields.position_number}`}
+                {savedCam?.label || fields.label || formatCameraNumber(t, fields.position_number)}
               </div>
               <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 1 }}>
-                {fields.ip_address || "IP Sozlanmagan"}
+                {fields.ip_address || t.ipNotConfigured}
               </div>
             </div>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <ConnectionBadge
               status={headerStatus}
-              message={connectionStatus?.message}
               checking={connectionChecking && !connectionStatus}
+              t={t}
             />
             {!isNew && (
               <button
@@ -356,7 +360,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                 onClick={handleDelete}
                 disabled={deleting}
                 style={{ borderRadius: "50%", color: "#ef4444", borderColor: "rgba(239,68,68,0.3)" }}
-                title="Kamerani o'chirish"
+                title={t.deleteCamera}
               >
                 {deleting ? <Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
               </button>
@@ -373,8 +377,8 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
           padding: "0 1.25rem", background: "var(--bg-secondary)"
         }}>
           {[
-            { key: "view", icon: <Eye size={13} />, label: "Jonli Video", disabled: isNew || !fields.ip_address },
-            { key: "settings", icon: <Settings size={13} />, label: isNew ? "Kamera Qo'shish" : "Tahrirlash" },
+            { key: "view", icon: <Eye size={13} />, label: t.liveVideoTab, disabled: isNew || !fields.ip_address },
+            { key: "settings", icon: <Settings size={13} />, label: isNew ? t.addCameraTab : t.editCameraTab },
           ].map(tb => (
             <button
               key={tb.key}
@@ -409,7 +413,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                   fontSize: "0.8rem", color: "var(--text-secondary)",
                 }}>
                   <Loader size={16} style={{ animation: "spin 1s linear infinite", color: "#3b82f6" }} />
-                  Kamera ulanishi tekshirilmoqda...
+                  {t.checkingConnection}
                 </div>
               )}
 
@@ -432,7 +436,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                     color: "var(--text-muted)", background: "#090d16", zIndex: 5
                   }}>
                     <Loader size={28} style={{ animation: "spin 1s linear infinite", color: "var(--accent-color)" }} />
-                    <span style={{ fontSize: "0.78rem", fontWeight: 500 }}>Ulanmoqda...</span>
+                    <span style={{ fontSize: "0.78rem", fontWeight: 500 }}>{t.streamConnecting}</span>
                   </div>
                 )}
 
@@ -445,7 +449,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                       display: initialLoading ? "none" : "block", cursor: "zoom-in",
                     }}
                     onClick={() => setLiveZoomed(true)}
-                    title="Kattalashtirish uchun bosing"
+                    title={t.enlargeToView}
                     onLoad={() => { setInitialLoading(false); setImgError(false); }}
                     onError={() => { setImgError(true); setInitialLoading(false); }}
                   />
@@ -458,9 +462,9 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center"
                   }}>
                     <WifiOff size={32} style={{ color: "#ef4444", marginBottom: 6, opacity: 0.8 }} />
-                    <ConnectionBadge status={connectionStatus?.status || "offline"} message={connectionStatus?.message} />
+                    <ConnectionBadge status={connectionStatus?.status || "offline"} t={t} />
                     <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#f8fafc", marginTop: 10 }}>
-                      {backendErrorDetail || connectionStatus?.message || (directConnect ? "Brauzer orqali ulanib bo'lmadi" : "Server orqali ulanib bo'lmadi")}
+                      {backendErrorDetail || connectionStatus?.message || (directConnect ? t.streamViaBrowserFailed : t.streamViaServerFailed)}
                     </div>
                     <div style={{ fontSize: "0.75rem", marginTop: 4, opacity: 0.6 }}>
                       IP: {fields.ip_address}:{fields.http_port}
@@ -470,7 +474,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                       style={{ marginTop: 12, fontSize: "0.78rem", padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, borderRadius: "0.375rem" }}
                       onClick={() => setTab("settings")}
                     >
-                      <Settings size={13} /> Ulanish sozlamalarini tahrirlash
+                      <Settings size={13} /> {t.editConnectionSettings}
                     </button>
                   </div>
                 )}
@@ -484,7 +488,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                       display: "flex", alignItems: "center", gap: 5, zIndex: 4
                     }}>
                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", animation: "pulse-dot 1.2s infinite" }} />
-                      LIVE
+                      {t.streamLive}
                     </div>
                     <button
                       type="button"
@@ -500,7 +504,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                       onMouseEnter={e => e.currentTarget.style.background = "rgba(37, 99, 235, 0.9)"}
                       onMouseLeave={e => e.currentTarget.style.background = "rgba(15, 23, 42, 0.85)"}
                     >
-                      <ExternalLink size={12} /> Kattalashtirish
+                      <ExternalLink size={12} /> {t.enlarge}
                     </button>
                   </>
                 )}
@@ -517,14 +521,14 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                   background: !directConnect ? "var(--bg-primary)" : "transparent",
                   color: !directConnect ? "var(--accent-color)" : "var(--text-secondary)",
                   boxShadow: !directConnect ? "0 1px 3px rgba(0,0,0,0.2)" : "none", transition: "all 0.15s"
-                }}>Server orqali</button>
+                }}>{t.connectViaServer}</button>
                 <button type="button" onClick={() => setDirectConnect(true)} style={{
                   flex: 1, padding: "6px", fontSize: "0.75rem", fontWeight: 600,
                   borderRadius: "0.35rem", border: "none", cursor: "pointer",
                   background: directConnect ? "var(--bg-primary)" : "transparent",
                   color: directConnect ? "var(--accent-color)" : "var(--text-secondary)",
                   boxShadow: directConnect ? "0 1px 3px rgba(0,0,0,0.2)" : "none", transition: "all 0.15s"
-                }}>Brauzer orqali (Lokal)</button>
+                }}>{t.connectViaBrowser}</button>
               </div>
 
               {directConnect && (
@@ -534,7 +538,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                   display: "flex", flexDirection: "column", gap: "0.5rem"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>Snapshot URL:</span>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{t.snapshotUrl}</span>
                     <select value={directPath} onChange={e => setDirectPath(e.target.value)} style={{
                       background: "var(--bg-primary)", color: "var(--text-primary)",
                       border: "1px solid var(--border-color)", borderRadius: 4,
@@ -555,11 +559,11 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
               }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
                   <div>
-                    <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>IP Manzil</span>
+                    <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>{t.cameraIp}</span>
                     <strong style={{ color: "var(--text-primary)" }}>{fields.ip_address}:{fields.http_port}</strong>
                   </div>
                   <div>
-                    <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>Joy Raqami</span>
+                    <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>{t.positionNumberLabel}</span>
                     <strong style={{ color: "var(--text-primary)" }}>#{fields.position_number}</strong>
                   </div>
                 </div>
@@ -569,7 +573,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, fontSize: "0.8rem", padding: "0.5rem" }} onClick={handleCopyRtsp}>
                   {copied ? <CircleCheck size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
-                  {copied ? "RTSP nusxalandi!" : "RTSP nusxalash"}
+                  {copied ? t.rtspCopied : t.copyRtspUrl}
                 </button>
                 <button type="button" className="btn btn-secondary" style={{ fontSize: "0.8rem", padding: "0.5rem" }} onClick={async () => {
                   const result = await runConnectionTest();
@@ -583,10 +587,10 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                     setBackendErrorDetail(result.message);
                   }
                 }}>
-                  <RotateCcw size={14} /> Qayta tekshirish
+                  <RotateCcw size={14} /> {t.recheckConnection}
                 </button>
                 <button type="button" className="btn btn-secondary" style={{ fontSize: "0.8rem", padding: "0.5rem" }} onClick={() => window.open(`http://${fields.ip_address}:${fields.http_port}`, "_blank")}>
-                  <ExternalLink size={14} /> Brauzerda
+                  <ExternalLink size={14} /> {t.openInBrowser}
                 </button>
               </div>
             </div>
@@ -602,7 +606,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
               <div className="form-group">
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 600 }}>
                   <Hash size={13} style={{ color: "var(--accent-color)" }} />
-                  Joy raqami <span style={{ color: "#ef4444" }}>*</span>
+                  {t.positionNumberLabel} <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
                   type="number"
@@ -620,12 +624,12 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
               <div className="form-group">
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 600 }}>
                   <Globe2 size={13} strokeWidth={1.75} style={{ color: "var(--accent-color)" }} />
-                  IP Manzil <span style={{ color: "#ef4444" }}>*</span>
+                  {t.cameraIp} <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Masalan: 192.168.1.100"
+                  placeholder={t.ipExample}
                   value={fields.ip_address}
                   onChange={e => handleChange("ip_address", e.target.value)}
                   required
@@ -637,7 +641,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                 <div className="form-group">
                   <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 600 }}>
                     <CircleUser size={13} strokeWidth={1.75} style={{ color: "var(--accent-color)" }} />
-                    Login
+                    {t.cameraLogin}
                   </label>
                   <input
                     type="text"
@@ -651,12 +655,12 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                 <div className="form-group">
                   <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 600 }}>
                     <LockKeyhole size={13} strokeWidth={1.75} style={{ color: "var(--accent-color)" }} />
-                    Parol <span style={{ color: "#ef4444" }}>*</span>
+                    {t.cameraPassword} <span style={{ color: "#ef4444" }}>*</span>
                   </label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Parol"
+                    placeholder={t.password}
                     value={fields.password}
                     onChange={e => handleChange("password", e.target.value)}
                     required
@@ -671,7 +675,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                   background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)",
                   fontSize: "0.8rem", color: "#fca5a5",
                 }}>
-                  <strong style={{ color: "#ef4444" }}>Ulanish xatosi:</strong> {connectionStatus.message}
+                  <strong style={{ color: "#ef4444" }}>{t.connectionErrorLabel}</strong> {connectionStatus.message}
                 </div>
               )}
 
@@ -687,7 +691,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                   }}
                 >
                   {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                  Qo'shimcha sozlamalar (ixtiyoriy)
+                  {t.advancedSettings}
                 </button>
 
                 {showAdvanced && (
@@ -699,17 +703,17 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                   }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
                       <div className="form-group">
-                        <label style={{ fontSize: "0.75rem" }}>RTSP Port</label>
+                        <label style={{ fontSize: "0.75rem" }}>{t.rtspPort}</label>
                         <input type="number" className="form-input" value={fields.rtsp_port} onChange={e => handleChange("rtsp_port", e.target.value)} />
                       </div>
                       <div className="form-group">
-                        <label style={{ fontSize: "0.75rem" }}>HTTP Port</label>
+                        <label style={{ fontSize: "0.75rem" }}>{t.httpPort}</label>
                         <input type="number" className="form-input" value={fields.http_port} onChange={e => handleChange("http_port", e.target.value)} />
                       </div>
                     </div>
 
                     <div className="form-group">
-                      <label style={{ fontSize: "0.75rem" }}>Ulanish yo'li (Stream path)</label>
+                      <label style={{ fontSize: "0.75rem" }}>{t.streamPath}</label>
                       <input
                         type="text" className="form-input" placeholder="/Streaming/Channels/101"
                         value={fields.stream_path} onChange={e => handleChange("stream_path", e.target.value)}
@@ -717,9 +721,9 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                     </div>
 
                     <div className="form-group">
-                      <label style={{ fontSize: "0.75rem" }}>Kamera nomi / yorlig'i</label>
+                      <label style={{ fontSize: "0.75rem" }}>{t.cameraLabel}</label>
                       <input
-                        type="text" className="form-input" placeholder="Masalan: Kirish, Platforma-1"
+                        type="text" className="form-input" placeholder={t.labelExample}
                         value={fields.label} onChange={e => handleChange("label", e.target.value)}
                       />
                     </div>
@@ -729,7 +733,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                         type="checkbox" checked={fields.is_active}
                         onChange={e => handleChange("is_active", e.target.checked)}
                       />
-                      Ulanish faol holatda
+                      {t.connectionActive}
                     </label>
                   </div>
                 )}
@@ -738,7 +742,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
 
             <div className="modal-footer" style={{ padding: "1rem 1.25rem", background: "var(--bg-secondary)", display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
               <button type="button" className="btn btn-secondary" onClick={onClose} style={{ borderRadius: "0.5rem" }}>
-                Bekor qilish
+                {t.cancel}
               </button>
               <button
                 type="button"
@@ -748,11 +752,11 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
                 style={{ borderRadius: "0.5rem", display: "flex", alignItems: "center", gap: 6 }}
               >
                 {connectionChecking ? <Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Wifi size={14} />}
-                Ulanishni tekshirish
+                {t.testConnection}
               </button>
               <button type="submit" className="btn btn-primary" disabled={saving || connectionChecking} style={{ borderRadius: "0.5rem" }}>
                 {saving ? <Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={14} />}
-                {isNew ? "Qo'shish" : "Saqlash"}
+                {isNew ? t.addBtn : t.save}
               </button>
             </div>
           </form>
@@ -763,9 +767,10 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
       {liveZoomed && streamAllowed && (
         <InteractiveMediaViewer
           src={liveUrl}
-          title={`${savedCam?.label || `Kamera #${savedCam?.position_number}`} — Jonli ko'rinish`}
+          title={`${savedCam?.label || formatCameraNumber(t, savedCam?.position_number)} — ${t.liveViewTitle}`}
           onClose={() => setLiveZoomed(false)}
           isLive={true}
+          t={t}
         />
       )}
     </div>
@@ -776,10 +781,10 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
           <div className="confirm-icon-ring danger">
             <Trash2 size={26} strokeWidth={1.75} />
           </div>
-          <h3 className="confirm-title">Kamerani o&apos;chirish</h3>
+          <h3 className="confirm-title">{t.deleteConfirmTitle}</h3>
           <p className="confirm-message">
-            <strong>{cam?.label || `Kamera #${cam?.position_number}`}</strong> ni o&apos;chirishni tasdiqlaysizmi?
-            Bu amalni qaytarib bo&apos;lmaydi.
+            <strong>{cam?.label || formatCameraNumber(t, cam?.position_number)}</strong> {t.deleteConfirmMsg}
+            {t.deleteIrreversible}
           </p>
           <div className="confirm-actions">
             <button
@@ -788,7 +793,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
               onClick={() => setShowDeleteConfirm(false)}
               disabled={deleting}
             >
-              Bekor qilish
+              {t.cancel}
             </button>
             <button
               type="button"
@@ -798,7 +803,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
               style={{ minWidth: 110 }}
             >
               {deleting ? <Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-              O&apos;chirish
+              {t.deleteBtn}
             </button>
           </div>
         </div>
@@ -811,7 +816,7 @@ function SchemaCameraModal({ cam, stationId, token, t, onClose, onSave, clickedC
 
 
 // ─── RASM YUKLASH MODAL ─────────────────────────────────────────────────
-function ImageUploadModal({ station, token, onClose, onUploaded, showNotification }) {
+function ImageUploadModal({ station, token, t, onClose, onUploaded, showNotification }) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -822,7 +827,7 @@ function ImageUploadModal({ station, token, onClose, onUploaded, showNotificatio
     if (!file) return;
     const allowed = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
     if (!allowed.includes(file.type)) {
-      showNotification("warning", "Xatolik", "Faqat JPG, PNG yoki PDF fayllar qabul qilinadi!");
+      showNotification("warning", t.errorTitle, t.invalidFileType);
       return;
     }
     setSelectedFile(file);
@@ -853,12 +858,12 @@ function ImageUploadModal({ station, token, onClose, onUploaded, showNotificatio
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!resp.ok) throw new Error("Yuklashda xatolik");
-      showNotification("success", "Muvaffaqiyat", "Sxema muvaffaqiyatli yuklandi!");
+      if (!resp.ok) throw new Error(t.uploadError);
+      showNotification("success", t.successTitle, t.uploadSuccess);
       onUploaded();
       onClose();
     } catch (err) {
-      showNotification("error", "Xatolik", err.message || "Yuklashda muammo yuz berdi");
+      showNotification("error", t.errorTitle, err.message || t.uploadProblem);
     } finally {
       setUploading(false);
     }
@@ -882,10 +887,10 @@ function ImageUploadModal({ station, token, onClose, onUploaded, showNotificatio
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: "1rem" }}>
-                {station?.schema_image ? "Sxemani Yangilash" : "Bekat Sxemasini Yuklash"}
+                {station?.schema_image ? t.updateSchema : t.uploadSchema}
               </div>
               <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 1 }}>
-                {station?.name} — JPG, PNG yoki PDF
+                {station?.name} — {t.schemaFormats}
               </div>
             </div>
           </div>
@@ -925,22 +930,22 @@ function ImageUploadModal({ station, token, onClose, onUploaded, showNotificatio
             ) : (
               <div>
                 <Upload size={40} style={{ color: "var(--text-muted)", opacity: 0.5, marginBottom: "0.75rem" }} />
-                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>Faylni shu yerga tashlang yoki tanlang</div>
-                <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.4rem" }}>JPG, PNG, PDF — maksimal 10MB</div>
+                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>{t.dropFileHere}</div>
+                <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.4rem" }}>{t.fileSizeHint}</div>
               </div>
             )}
           </div>
         </div>
 
         <div className="modal-footer" style={{ padding: "1rem 1.25rem", background: "var(--bg-secondary)" }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose} style={{ borderRadius: "0.5rem" }}>Bekor qilish</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose} style={{ borderRadius: "0.5rem" }}>{t.cancel}</button>
           <button
             type="button" className="btn btn-primary"
             disabled={!selectedFile || uploading} onClick={handleUpload}
             style={{ borderRadius: "0.5rem", background: "linear-gradient(135deg, #f59e0b, #d97706)", opacity: !selectedFile ? 0.6 : 1 }}
           >
             {uploading ? <Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={14} />}
-            {uploading ? "Yuklanmoqda..." : "Yuklash"}
+            {uploading ? t.uploading : t.uploadBtn}
           </button>
         </div>
       </div>
@@ -949,18 +954,18 @@ function ImageUploadModal({ station, token, onClose, onUploaded, showNotificatio
 }
 
 // ─── JONLI KAMERA FULLSCREEN ─────────────────────────────────────────────
-function SchemaLiveViewer({ cam, token, onClose }) {
+function SchemaLiveViewer({ cam, token, t, onClose }) {
   const [tick, setTick] = useState(0);
   const [connection, setConnection] = useState({ checking: true });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const result = await testSchemaCameraConnection(token, { id: cam.id });
+      const result = await testSchemaCameraConnection(token, { id: cam.id }, t);
       if (!cancelled) setConnection({ checking: false, ...result });
     })();
     return () => { cancelled = true; };
-  }, [cam.id, token]);
+  }, [cam.id, token, t]);
 
   useEffect(() => {
     if (!connection.ok) return;
@@ -978,7 +983,7 @@ function SchemaLiveViewer({ cam, token, onClose }) {
         alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12,
       }}>
         <Loader size={36} style={{ animation: "spin 1s linear infinite", color: "#3b82f6" }} />
-        <span style={{ color: "#fff", fontSize: "0.9rem" }}>Kamera ulanishi tekshirilmoqda...</span>
+        <span style={{ color: "#fff", fontSize: "0.9rem" }}>{t.checkingConnection}</span>
       </div>,
       document.body
     );
@@ -1005,7 +1010,7 @@ function SchemaLiveViewer({ cam, token, onClose }) {
           <X size={20} />
         </button>
         <WifiOff size={40} style={{ color: "#ef4444" }} />
-        <ConnectionBadge status={connection.status || "offline"} message={connection.message} />
+        <ConnectionBadge status={connection.status || "offline"} t={t} />
         <p style={{ color: "#f8fafc", fontSize: "0.95rem", fontWeight: 600, maxWidth: 420, textAlign: "center", margin: 0 }}>
           {connection.message}
         </p>
@@ -1019,15 +1024,16 @@ function SchemaLiveViewer({ cam, token, onClose }) {
   return (
     <InteractiveMediaViewer
       src={liveUrl}
-      title={`${cam.label || `Kamera #${cam.position_number}`} — Jonli ko'rinish`}
+      title={`${cam.label || formatCameraNumber(t, cam.position_number)} — ${t.liveViewTitle}`}
       onClose={onClose}
       isLive={true}
+      t={t}
     />
   );
 }
 
 // ─── INTERACTIVE MEDIA VIEWER COMPONENT (ZOOM & PAN) ─────────────────────────
-function InteractiveMediaViewer({ src, title, onClose, isLive }) {
+function InteractiveMediaViewer({ src, title, onClose, isLive, t }) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -1159,9 +1165,9 @@ function InteractiveMediaViewer({ src, title, onClose, isLive }) {
           backdropFilter: "blur(8px)", boxShadow: "0 4px 15px rgba(0,0,0,0.4)"
         }}>
           {[
-            { icon: <ZoomIn size={18} strokeWidth={1.75} />, onClick: zoomIn, title: "Yaqinlashtirish" },
-            { icon: <span style={{ fontSize: "1.2rem", fontWeight: "bold", lineHeight: 0 }}>-</span>, onClick: zoomOut, title: "Uzoqlashtirish" },
-            { icon: <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>1:1</span>, onClick: resetZoom, title: "Asl o'lcham" },
+            { icon: <ZoomIn size={18} strokeWidth={1.75} />, onClick: zoomIn, title: t.zoomIn },
+            { icon: <span style={{ fontSize: "1.2rem", fontWeight: "bold", lineHeight: 0 }}>-</span>, onClick: zoomOut, title: t.zoomOut },
+            { icon: <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>1:1</span>, onClick: resetZoom, title: t.resetView },
           ].map((btn, i) => (
             <button key={i} type="button" onClick={btn.onClick} title={btn.title}
               style={{
@@ -1177,7 +1183,7 @@ function InteractiveMediaViewer({ src, title, onClose, isLive }) {
             </button>
           ))}
         </div>
-        <button type="button" onClick={onClose} title="Yopish"
+        <button type="button" onClick={onClose} title={t.close}
           style={{
             background: "rgba(31, 41, 55, 0.85)", border: "1px solid rgba(255, 255, 255, 0.15)",
             color: "#fff", width: 44, height: 44, borderRadius: "50%",
@@ -1231,7 +1237,7 @@ function InteractiveMediaViewer({ src, title, onClose, isLive }) {
         background: "rgba(15, 23, 42, 0.8)", padding: "6px 16px", borderRadius: "999px",
         backdropFilter: "blur(4px)", pointerEvents: "none", border: "1px solid rgba(255,255,255,0.08)"
       }}>
-        Sichqoncha g'ildiragi yoki chimdilash orqali yaqinlashtiring • Sichqoncha yoki barmog'ingiz bilan suring
+        {t.zoomHelper}
       </div>
     </div>,
     document.body
@@ -1259,7 +1265,7 @@ function clampPercent(value) {
 // ─── SXEMA CANVAS (ZOOM, PAN, PINLAR) ───────────────────────────────────
 function SchemaMapCanvas({
   src,
-  alt = "Bekat sxemasi",
+  alt,
   cameras = [],
   selectedCamId = null,
   highlightedCamId = null,
@@ -1277,6 +1283,7 @@ function SchemaMapCanvas({
   savingLayout = false,
   markCamId = null,
   markingCamLabel = null,
+  t,
 }) {
   const viewportRef = useRef(null);
   const stageRef = useRef(null);
@@ -1424,7 +1431,7 @@ function SchemaMapCanvas({
           <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>{title}</div>
           {editMode && (
             <div style={{ fontSize: "0.78rem", opacity: 0.75, marginTop: 2 }}>
-              Pinlarni sudrab joylashtiring, keyin Saqlash
+              {t.editDragSaveHint}
             </div>
           )}
         </div>
@@ -1433,7 +1440,7 @@ function SchemaMapCanvas({
       {editMode && fullscreen && (
         <div className="schema-edit-toolbar" onClick={e => e.stopPropagation()}>
           <span className="schema-edit-toolbar-label">
-            <MapPin size={14} strokeWidth={1.75} /> Joylashtirish rejimi
+            <MapPin size={14} strokeWidth={1.75} /> {t.placementModeLabel}
           </span>
           <div className="schema-edit-toolbar-actions">
             <button
@@ -1442,7 +1449,7 @@ function SchemaMapCanvas({
               onClick={onCancelEdit}
               disabled={savingLayout}
             >
-              Bekor qilish
+              {t.layoutCancel}
             </button>
             <button
               type="button"
@@ -1452,7 +1459,7 @@ function SchemaMapCanvas({
               style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
             >
               {savingLayout ? <Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={14} strokeWidth={1.75} />}
-              Saqlash
+              {t.layoutSave}
             </button>
           </div>
         </div>
@@ -1463,16 +1470,16 @@ function SchemaMapCanvas({
           type="button"
           className="schema-fullscreen-exit-btn"
           onClick={editMode ? onCancelEdit : onClose}
-          title="Yopish"
+          title={t.close}
         >
           <X size={20} strokeWidth={1.75} />
         </button>
       )}
 
       <div className="schema-zoom-controls" onClick={e => e.stopPropagation()}>
-        <button type="button" onClick={zoomIn} title="Yaqinlashtirish"><ZoomIn size={16} strokeWidth={1.75} /></button>
-        <button type="button" onClick={zoomOut} title="Uzoqlashtirish"><span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1 }}>−</span></button>
-        <button type="button" onClick={resetZoom} title="Asl holat"><span style={{ fontSize: "0.68rem", fontWeight: 700 }}>1:1</span></button>
+        <button type="button" onClick={zoomIn} title={t.zoomIn}><ZoomIn size={16} strokeWidth={1.75} /></button>
+        <button type="button" onClick={zoomOut} title={t.zoomOut}><span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1 }}>−</span></button>
+        <button type="button" onClick={resetZoom} title={t.resetZoom}><span style={{ fontSize: "0.68rem", fontWeight: 700 }}>1:1</span></button>
       </div>
 
       {editMode && markingCamLabel && (
@@ -1544,10 +1551,10 @@ function SchemaMapCanvas({
 
       <div className="schema-viewport-hint">
         {editMode
-          ? "Qo'l bilan sudrab pinlarni ko'chiring • G'ildirak — zoom • Sxemani suring"
+          ? t.pinHintEdit
           : fullscreen
-            ? "Pin ustiga bosing — jonli kamera ochiladi • G'ildirak — zoom • Sxemani suring"
-            : "Pin ustiga bosing — kamera ochiladi • G'ildirak — zoom • Sxemani suring"}
+            ? t.pinHintFullscreen
+            : t.pinHintView}
       </div>
     </>
   );
@@ -1600,12 +1607,12 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
 
     const results = await Promise.all(
       cameras.map(async (cam) => {
-        const result = await testSchemaCameraConnection(token, { id: cam.id });
+        const result = await testSchemaCameraConnection(token, { id: cam.id }, t);
         return [cam.id, result];
       })
     );
     setConnectionMap(Object.fromEntries(results));
-  }, [token]);
+  }, [token, t]);
 
   const fetchSchemaCameras = useCallback(async () => {
     if (!station?.id) return;
@@ -1641,12 +1648,12 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
   const handlePinClick = (cam) => {
     const conn = connectionMap[cam.id];
     if (conn?.ok === false) {
-      showNotification("warning", "Jonli video yo'q", conn.message);
+      showNotification("warning", t.liveNoVideo, conn.message);
       openCameraModal(cam, "view");
       return;
     }
     if (conn?.ok !== true) {
-      showNotification("info", "Tekshirilmoqda", "Kamera ulanishi hali tekshirilmoqda...");
+      showNotification("info", t.checkingTitle, t.checkingWait);
       return;
     }
     if (fullscreenMode === "view") {
@@ -1739,11 +1746,13 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
 
   const handleSaved = async (data, connectionResult) => {
     if (data === null) {
-      showNotification("success", t.title, "Kamera o'chirildi");
+      showNotification("success", t.title, t.cameraDeleted);
     } else if (connectionResult?.ok) {
-      showNotification("success", t.title, t.successStreamSaved || "Kamera saqlandi va ulanish tasdiqlandi");
+      showNotification("success", t.title, t.cameraSavedLiveMsg);
+    } else if (connectionResult?.status === "offline") {
+      showNotification("warning", t.title, t.cameraSavedOfflineMsg);
     } else if (connectionResult) {
-      showNotification("warning", "Ulanish xatosi", connectionResult.message);
+      showNotification("warning", t.connectionErrorTitle, connectionResult.message);
     } else {
       showNotification("success", t.title, t.successStreamSaved || "Saqlandi");
     }
@@ -1783,7 +1792,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
               fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
               background: "var(--bg-tertiary)", color: "var(--text-muted)", border: "1px solid var(--border-color)"
             }}>
-              {schemaCameras.length} kamera
+              {schemaCameras.length} {t.camerasUnit}
             </span>
           </div>
 
@@ -1796,7 +1805,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                   style={{ fontSize: "0.75rem", padding: "0.4rem 0.8rem", display: "flex", alignItems: "center", gap: "0.35rem" }}
                   onClick={() => setFullscreenMode("view")}
                 >
-                  <Eye size={13} /> Kattalashtirish
+                  <Eye size={13} /> {t.enlarge}
                 </button>
                 <button
                   type="button"
@@ -1811,7 +1820,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                   }}
                   onClick={openLayoutEditor}
                 >
-                  <MapPin size={13} /> Joylashtirish
+                  <MapPin size={13} /> {t.placement}
                 </button>
               </>
             )}
@@ -1821,8 +1830,8 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
               onClick={() => setImageUploadOpen(true)}
             >
               {station?.schema_image
-                ? <><RefreshCw size={13} /> Qayta yuklash</>
-                : <><Upload size={13} /> Sxema yuklash</>
+                ? <><RefreshCw size={13} /> {t.reupload}</>
+                : <><Upload size={13} /> {t.uploadSchemaShort}</>
               }
             </button>
           </div>
@@ -1833,13 +1842,14 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
           {station?.schema_image ? (
             <SchemaMapCanvas
               src={buildMediaUrl(station.schema_image)}
-              alt={`${station.name} sxemasi`}
+              alt={`${station.name} ${t.schemaOf}`}
               cameras={camerasForCanvas}
               selectedCamId={selectedCam?.id}
               highlightedCamId={highlightedCamId}
               editMode={false}
               onPinClick={handlePinClick}
               maxHeight={600}
+              t={t}
             />
           ) : (
             <div style={{
@@ -1856,7 +1866,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
               <div style={{ textAlign: "center" }}>
                 <p style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--text-secondary)" }}>{t.noSchema}</p>
                 <p style={{ fontSize: "0.78rem", opacity: 0.6, marginTop: "0.25rem" }}>
-                  Bekat xaritasini rasm yoki PDF shaklida yuklang
+                  {t.uploadSchemaHint}
                 </p>
               </div>
               <button
@@ -1864,7 +1874,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem" }}
                 onClick={(e) => { e.stopPropagation(); setImageUploadOpen(true); }}
               >
-                <Upload size={15} /> Sxema Yuklash
+                <Upload size={15} /> {t.uploadSchemaBtn}
               </button>
             </div>
           )}
@@ -1883,7 +1893,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Cctv size={16} style={{ color: "var(--accent-color)" }} />
             <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>
-              Sxemadagi kameralar ({schemaCameras.length})
+              {t.schemaCamerasList} ({schemaCameras.length})
             </span>
           </div>
           <button
@@ -1895,14 +1905,14 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
             }}
             onClick={handleAddNew}
           >
-            <CirclePlus size={14} strokeWidth={1.75} /> Kamera Qo'shish
+            <CirclePlus size={14} strokeWidth={1.75} /> {t.addCameraBtn}
           </button>
         </div>
 
         {loading ? (
           <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
             <Loader size={28} style={{ animation: "spin 1s linear infinite", color: "var(--accent-color)", marginBottom: 8 }} />
-            <p>Yuklanmoqda...</p>
+            <p>{t.loading}</p>
           </div>
         ) : schemaCameras.length === 0 ? (
           <div style={{
@@ -1912,10 +1922,10 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
             <Cctv size={40} style={{ opacity: 0.2 }} />
             <div>
               <p style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                {t.noData || "Ma'lumot topilmadi"}
+                {t.noData}
               </p>
               <p style={{ fontSize: "0.78rem", opacity: 0.6, marginTop: "0.25rem" }}>
-                Bekat sxemasiga kamera qo'shing
+                {t.addToSchemaHint}
               </p>
             </div>
             <button
@@ -1926,7 +1936,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
               }}
               onClick={handleAddNew}
             >
-              <CirclePlus size={14} strokeWidth={1.75} /> Birinchi Kamerani Qo'shish
+              <CirclePlus size={14} strokeWidth={1.75} /> {t.firstCamera}
             </button>
           </div>
         ) : (
@@ -1934,11 +1944,11 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border-color)", background: "var(--bg-tertiary)" }}>
-                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700, width: "70px" }}>Joy №</th>
-                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700 }}>Kamera</th>
-                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700 }}>IP Manzil</th>
-                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700 }}>Holat</th>
-                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700, textAlign: "right", width: "130px" }}>Amallar</th>
+                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700, width: "70px" }}>{t.positionNumber}</th>
+                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700 }}>{t.cameraCol}</th>
+                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700 }}>{t.cameraIp}</th>
+                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700 }}>{t.statusCol}</th>
+                  <th style={{ padding: "0.85rem 1.25rem", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 700, textAlign: "right", width: "130px" }}>{t.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1966,7 +1976,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                           setFullscreenMode("edit");
                         }
                       }}
-                      title="Joylashtirish rejimida sxemada belgilash"
+                      title={t.markOnSchema}
                     >
                       <div style={{
                         width: 36, height: 36, borderRadius: "50%",
@@ -1986,10 +1996,10 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                     {/* Label */}
                     <td style={{ padding: "0.85rem 1.25rem" }}>
                       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--text-primary)" }}>
-                        {cam.label || `Kamera #${cam.position_number}`}
+                        {cam.label || formatCameraNumber(t, cam.position_number)}
                       </div>
                       <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 2 }}>
-                        Sxema kamerasi
+                        {t.schemaCameraType}
                       </div>
                     </td>
 
@@ -2007,6 +2017,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                         message={connectionMap[cam.id]?.message}
                         checking={!connectionMap[cam.id] || connectionMap[cam.id]?.status === "checking"}
                         compact
+                        t={t}
                       />
                     </td>
 
@@ -2015,11 +2026,11 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                       <div style={{ display: "flex", gap: "0.4rem", justifyContent: "flex-end" }}>
                         <button
                           className="btn btn-secondary btn-icon"
-                          title="Jonli ko'rish"
+                          title={t.liveViewBtn}
                           onClick={() => {
                             const conn = connectionMap[cam.id];
                             if (conn?.ok === false) {
-                              showNotification("warning", "Jonli video yo'q", conn.message);
+                              showNotification("warning", t.liveNoVideo, conn.message);
                             }
                             openCameraModal(cam, "view");
                           }}
@@ -2029,7 +2040,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                         </button>
                         <button
                           className="btn btn-secondary btn-icon"
-                          title="Tahrirlash"
+                          title={t.edit}
                           onClick={() => openCameraModal(cam, "settings")}
                           style={{ padding: "0.4rem", borderRadius: "0.35rem" }}
                         >
@@ -2057,7 +2068,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
                 }}
                 onClick={handleAddNew}
               >
-                <CirclePlus size={16} strokeWidth={1.75} /> Yangi Kamera Qo'shish
+                <CirclePlus size={16} strokeWidth={1.75} /> {t.addNewCamera}
               </button>
             </div>
           </div>
@@ -2089,6 +2100,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
         <ImageUploadModal
           station={station}
           token={token}
+          t={t}
           onClose={() => setImageUploadOpen(false)}
           onUploaded={handleImageUploaded}
           showNotification={showNotification}
@@ -2100,8 +2112,8 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
         <SchemaMapCanvas
           fullscreen
           src={buildMediaUrl(station.schema_image)}
-          alt={`${station.name} sxemasi`}
-          title={fullscreenMode === "edit" ? `${station.name} — Joylashtirish` : `${station.name} — Bekat Sxemasi`}
+          alt={`${station.name} ${t.schemaOf}`}
+          title={fullscreenMode === "edit" ? `${station.name} — ${t.placementModeTitle}` : `${station.name} — ${t.schemaFullscreenTitle}`}
           cameras={camerasForCanvas}
           selectedCamId={markCamId || selectedCam?.id}
           highlightedCamId={highlightedCamId}
@@ -2115,7 +2127,8 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
           hasPendingChanges={hasPendingChanges}
           savingLayout={savingLayout}
           markCamId={markCamId}
-          markingCamLabel={markCamId ? `Kamera #${schemaCameras.find(c => c.id === markCamId)?.position_number} joyini sxemada bosing` : null}
+          markingCamLabel={markCamId ? t.placementHint.replace("#{n}", schemaCameras.find(c => c.id === markCamId)?.position_number) : null}
+          t={t}
         />
       )}
 
@@ -2123,6 +2136,7 @@ export default function CameraSchema({ station, token, t, showNotification, onRe
         <SchemaLiveViewer
           cam={liveFullscreenCam}
           token={token}
+          t={t}
           onClose={() => setLiveFullscreenCam(null)}
         />
       )}
