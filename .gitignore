@@ -16,10 +16,10 @@ venv/
 .venv/
 ENV/
 
-# Environment variables (maxfiy ma'lumotlar)
+# Environment variables (maxfiy ma'lumotlar — hammasi gitga kirmaydi)
 .env
 .env.*
-!.env.example
+.env.example
 
 # Django
 *.log
@@ -43,7 +43,7 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.*
-!frontend/.env.example
+frontend/.env.example
 
 # Vite cache
 frontend/.vite/
