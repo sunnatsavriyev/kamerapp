@@ -10,12 +10,13 @@
   --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', var(--font-primary);
 
-  /* Light Theme — ko'k va oq */
-  --bg-primary: #eef4ff;
+  /* Light Theme — oq fon + ko'k naqsh (asosiy joylarda) */
+  --bg-primary: #ffffff;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #e3edff;
+  --bg-tertiary: #f0f5ff;
   --bg-sidebar: #f8faff;
-  --bg-pattern: rgba(37, 99, 235, 0.07);
+  --pattern-width: 219px;
+  --pattern-height: 77px;
   --bg-glow-1: rgba(37, 99, 235, 0.12);
   --bg-glow-2: rgba(29, 78, 216, 0.08);
 
@@ -75,7 +76,9 @@
   --bg-secondary: #132240;
   --bg-tertiary: #1a2d52;
   --bg-sidebar: #101e3a;
-  --bg-pattern: rgba(59, 130, 246, 0.06);
+  --bg-pattern: rgba(96, 165, 250, 0.12);
+  --pattern-width: 219px;
+  --pattern-height: 77px;
   --bg-glow-1: rgba(37, 99, 235, 0.2);
   --bg-glow-2: rgba(59, 130, 246, 0.14);
 
@@ -148,7 +151,7 @@ body {
   position: relative;
 }
 
-/* Orqa fon — ko'k nur va geometrik naqsh */
+/* Orqa fon — yengil nur (faqat umumiy fon, naqsh emas) */
 body::before {
   content: '';
   position: fixed;
@@ -157,41 +160,32 @@ body::before {
   pointer-events: none;
   background:
     radial-gradient(ellipse 70% 55% at 10% -5%, var(--bg-glow-1) 0%, transparent 55%),
-    radial-gradient(ellipse 55% 45% at 95% 105%, var(--bg-glow-2) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 35% at 50% 50%, var(--bg-glow-2) 0%, transparent 60%);
+    radial-gradient(ellipse 55% 45% at 95% 105%, var(--bg-glow-2) 0%, transparent 50%);
   transition: opacity 0.4s ease;
 }
 
 body::after {
-  content: '';
-  position: fixed;
+  display: none;
+}
+
+/* Geometrik naqsh — asl PNG (876×308), faqat asosiy kontent va login */
+.main-content-pattern,
+.login-page-pattern {
+  position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 1;
+  background-color: #ffffff;
+  background-image: url("/pattern-bg.png");
+  background-size: var(--pattern-width) var(--pattern-height);
+  background-repeat: repeat;
+  background-position: 0 0;
 }
 
-/* Light: organik nur to'lqinlari — katak yo'q */
-:root body::after {
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800' viewBox='0 0 800 800'%3E%3Cdefs%3E%3CradialGradient id='a' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%232563eb' stop-opacity='0.07'/%3E%3Cstop offset='100%25' stop-color='%232563eb' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='120' cy='180' r='160' fill='url(%23a)'/%3E%3Ccircle cx='680' cy='220' r='200' fill='url(%23a)'/%3E%3Ccircle cx='400' cy='620' r='240' fill='url(%23a)'/%3E%3Ccircle cx='650' cy='680' r='140' fill='url(%23a)'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 90% 70% at 15% 20%, rgba(37, 99, 235, 0.09) 0%, transparent 55%),
-    radial-gradient(ellipse 80% 60% at 85% 75%, rgba(59, 130, 246, 0.07) 0%, transparent 50%),
-    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(29, 78, 216, 0.05) 0%, transparent 45%);
-  background-size: 800px 800px, 100% 100%, 100% 100%, 100% 100%;
-  background-position: 0 0, 0 0, 0 0, 0 0;
-}
-
-/* Dark: aurora va yumshoq halqalar — katak yo'q */
-[data-theme="dark"] body::after {
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900' viewBox='0 0 900 900'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%233b82f6' stop-opacity='0.12'/%3E%3Cstop offset='100%25' stop-color='%233b82f6' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cellipse cx='200' cy='150' rx='280' ry='180' fill='url(%23g)' transform='rotate(-15 200 150)'/%3E%3Cellipse cx='720' cy='300' rx='220' ry='160' fill='url(%23g)' transform='rotate(20 720 300)'/%3E%3Cellipse cx='450' cy='700' rx='320' ry='200' fill='url(%23g)' transform='rotate(-8 450 700)'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 100% 80% at 0% 0%, rgba(37, 99, 235, 0.14) 0%, transparent 55%),
-    radial-gradient(ellipse 90% 70% at 100% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 60% at 40% 100%, rgba(29, 78, 216, 0.12) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 75% 65%, rgba(99, 102, 241, 0.06) 0%, transparent 45%);
-  background-size: 900px 900px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
-  background-position: center center, 0 0, 0 0, 0 0, 0 0;
+[data-theme="dark"] .main-content-pattern,
+[data-theme="dark"] .login-page-pattern {
+  background-color: #ffffff;
+  mix-blend-mode: multiply;
 }
 
 #root {
@@ -266,7 +260,9 @@ body::after {
 =========================== */
 .app-shell {
   display: flex;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
   position: relative;
 }
 
@@ -730,8 +726,18 @@ body::after {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
   transition: margin-left 0.25s ease;
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg-primary);
+}
+
+.main-content > *:not(.main-content-pattern) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ===========================
@@ -790,12 +796,17 @@ body::after {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 0;
+  background: transparent;
 }
 
 .page-content--map {
   padding: 0;
   overflow: hidden;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .page-header {
@@ -808,7 +819,9 @@ body::after {
   padding: 1.1rem 2rem 0.9rem;
   margin-bottom: 0;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 .page-header--flush {
@@ -2190,12 +2203,13 @@ body::after {
   flex: 1;
   width: 100%;
   min-height: 0;
+  height: 100%;
   position: relative;
   overflow: hidden;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  background: var(--bg-tertiary);
+  background: transparent;
 }
 
 [data-theme="dark"] .map-page {
@@ -2205,6 +2219,7 @@ body::after {
 .map-canvas-container {
   width: 100%;
   height: 100%;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   cursor: grab;
@@ -2213,16 +2228,29 @@ body::after {
   justify-content: center;
 }
 
-.map-canvas-container:active { cursor: grabbing; }
-
-.map-canvas-container svg {
+.map-transform-layer {
   transform-origin: center center;
+  will-change: transform;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metro-map-svg {
+  display: block;
+  width: 700px;
+  height: 900px;
+  max-width: none;
+  max-height: none;
+  flex-shrink: 0;
   user-select: none;
 }
 
-[data-theme="dark"] .map-canvas-container svg {
-  filter: brightness(0.75);
+[data-theme="dark"] .metro-map-svg {
+  filter: brightness(0.88);
 }
+
+.map-canvas-container:active { cursor: grabbing; }
 
 .station-circle {
   transition: r 0.2s, fill 0.2s, stroke-width 0.2s;
@@ -2488,6 +2516,16 @@ body::after {
   padding: 1.5rem;
   overflow: hidden;
   background: #ffffff;
+  isolation: isolate;
+}
+
+.login-page > *:not(.login-page-pattern):not(.login-page-bg) {
+  position: relative;
+  z-index: 2;
+}
+
+.login-page-pattern {
+  z-index: 1;
 }
 
 .login-page-bg {
@@ -2496,6 +2534,7 @@ body::after {
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  opacity: 0.25;
 }
 
 .login-blob {

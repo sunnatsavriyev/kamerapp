@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+
+const MAP_W = 700;
+const MAP_H = 900;
 
 export default function MetroMap({ apiStations, onStationSelect, selectedStationId, t }) {
   const [selectedStationKey, setSelectedStationKey] = useState(null);
+  const [baseFit, setBaseFit] = useState(1);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -136,9 +140,31 @@ export default function MetroMap({ apiStations, onStationSelect, selectedStation
     }
   };
 
+  // Xaritani konteynerga sig'dirish
+  const updateFit = useCallback(() => {
+    if (!containerRef.current) return;
+    const { clientWidth, clientHeight } = containerRef.current;
+    if (!clientWidth || !clientHeight) return;
+    const fit = Math.min(clientWidth / MAP_W, clientHeight / MAP_H, 1);
+    setBaseFit(fit);
+  }, []);
+
+  useEffect(() => {
+    updateFit();
+    const ro = new ResizeObserver(updateFit);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener("resize", updateFit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateFit);
+    };
+  }, [updateFit]);
+
+  const displayScale = baseFit * scale;
+
   // Zoom controls
-  const zoomIn = () => setScale(prev => Math.min(prev * 1.2, 3));
-  const zoomOut = () => setScale(prev => Math.max(prev / 1.2, 0.5));
+  const zoomIn = () => setScale((prev) => Math.min(prev * 1.2, 3));
+  const zoomOut = () => setScale((prev) => Math.max(prev / 1.2, 0.5));
   const resetZoom = () => {
     setScale(1);
     setPosition({ x: 0, y: 0 });
@@ -265,23 +291,16 @@ export default function MetroMap({ apiStations, onStationSelect, selectedStation
       </div>
 
       <div
+        className="map-transform-layer"
         style={{
-          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-          transformOrigin: "center center",
+          transform: `translate(${position.x}px, ${position.y}px) scale(${displayScale})`,
           transition: isDragging || isTouching ? "none" : "transform 0.15s ease-out",
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
         }}
       >
         <svg
           ref={svgRef}
-          width="750"
-          height="950"
+          className="metro-map-svg"
           viewBox="50 30 700 900"
-          style={{ minWidth: "700px", minHeight: "900px" }}
         >
           {/* Background rect to capture clicks */}
           <rect x="50" y="30" width="700" height="900" fill="transparent" />

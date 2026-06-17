@@ -103,6 +103,20 @@ const isTokenExpired = (token) => {
   }
 };
 
+const VALID_PAGES = ["dashboard", "map", "station-detail"];
+
+function readSavedPage() {
+  const page = localStorage.getItem("active_page");
+  return VALID_PAGES.includes(page) ? page : "dashboard";
+}
+
+function readSavedStationId() {
+  const raw = localStorage.getItem("selected_station_id");
+  if (!raw) return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
 export default function App() {
   const [token, setToken] = useState(() => {
     const savedToken = localStorage.getItem("token_marketing");
@@ -118,11 +132,11 @@ export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
   const [lang, setLang] = useState(localStorage.getItem("lang") || "uz");
   const [apiStations, setApiStations] = useState([]);
-  const [selectedStationId, setSelectedStationId] = useState(null);
+  const [selectedStationId, setSelectedStationId] = useState(readSavedStationId);
   const [stationsLoading, setStationsLoading] = useState(false);
 
   // Layout Routing State
-  const [activePage, setActivePage] = useState("dashboard"); // map, dashboard, station-detail
+  const [activePage, setActivePage] = useState(readSavedPage);
 
   // Toast Notification State
   const [notifications, setNotifications] = useState([]);
@@ -156,6 +170,33 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("lang", lang);
   }, [lang]);
+
+  // Sahifani refreshdan keyin saqlash
+  useEffect(() => {
+    localStorage.setItem("active_page", activePage);
+  }, [activePage]);
+
+  useEffect(() => {
+    if (selectedStationId != null) {
+      localStorage.setItem("selected_station_id", String(selectedStationId));
+    } else {
+      localStorage.removeItem("selected_station_id");
+    }
+  }, [selectedStationId]);
+
+  // Bekat detail — id yo'q yoki noto'g'ri bo'lsa xaritaga
+  useEffect(() => {
+    if (activePage === "station-detail" && !selectedStationId) {
+      setActivePage("map");
+      return;
+    }
+    if (activePage !== "station-detail" || !selectedStationId || !apiStations.length) return;
+    const exists = apiStations.some((s) => s.id === selectedStationId);
+    if (!exists) {
+      setActivePage("map");
+      setSelectedStationId(null);
+    }
+  }, [apiStations, activePage, selectedStationId]);
 
   // Load user details and station list if token exists
   useEffect(() => {
@@ -302,7 +343,6 @@ export default function App() {
       if (data.access) {
         localStorage.setItem("token_marketing", data.access);
         setToken(data.access);
-        setActivePage("dashboard");
         setAuthError("");
         showNotification("success", t.welcomeLogin, t.loginSuccess);
       } else {
@@ -317,6 +357,8 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("token_marketing");
+    localStorage.removeItem("active_page");
+    localStorage.removeItem("selected_station_id");
     setToken(null);
     setCurrentUser(null);
     setSelectedStationId(null);
@@ -418,6 +460,7 @@ export default function App() {
   if (!token) {
     return (
       <div className="login-page">
+        <div className="login-page-pattern" aria-hidden="true" />
         <div className="login-page-bg" aria-hidden="true">
           <div className="login-blob login-blob--1" />
           <div className="login-blob login-blob--2" />
@@ -590,6 +633,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="main-content">
+        <div className="main-content-pattern" aria-hidden="true" />
         <div className={`page-content ${activePage === "map" ? "page-content--map" : ""}`}>
 
           {/* Map Page */}
